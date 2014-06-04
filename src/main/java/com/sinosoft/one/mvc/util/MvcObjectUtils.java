@@ -13,4 +13,12 @@ public final class MvcObjectUtils {
     public static boolean isPrimitiveOrString(Class<?> clazz) {
         return clazz == String.class || clazz.isPrimitive();
     }
+
+    public static boolean isJsonStr(String str) {
+        int len = str.length();
+        char startChar = str.charAt(0);
+        char endChar = str.charAt(len-1);
+        return (startChar == '{' && str.charAt(len-1) == '}')
+                || (startChar == '[' && endChar == ']');
+    }
 }

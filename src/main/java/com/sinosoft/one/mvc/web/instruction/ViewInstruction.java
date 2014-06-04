@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletRequestWrapper;
 import javax.servlet.http.HttpServletResponse;
 
 import com.sinosoft.one.mvc.MvcConstants;
@@ -47,7 +48,7 @@ import org.springframework.web.servlet.View;
 import org.springframework.web.servlet.ViewResolver;
 
 /**
- * {@link ViewInstruction} 实现 {@link Instruction}接口，调用 {@link ViewResolver}
+ * {@link com.sinosoft.one.mvc.web.instruction.ViewInstruction} 实现 {@link com.sinosoft.one.mvc.web.instruction.Instruction}接口，调用 {@link org.springframework.web.servlet.ViewResolver}
  * 渲染页面
  * 
  *
@@ -76,7 +77,7 @@ public class ViewInstruction extends AbstractInstruction {
     public void doRender(Invocation inv) throws Exception {
         String name = resolvePlaceHolder(this.name, inv);
         ViewDispatcher viewResolver = getViewDispatcher(inv);
-        String viewPath = getViewPath((InvocationBean) inv, name);
+        final String viewPath = getViewPath((InvocationBean) inv, name);
         if (viewPath != null) {
             HttpServletRequest request = inv.getRequest();
             HttpServletResponse response = inv.getResponse();
@@ -85,9 +86,28 @@ public class ViewInstruction extends AbstractInstruction {
 
             if (!Thread.interrupted()) {
                 inv.addModel(MVC_INVOCATION, inv);
-                if(request.getAttribute(MvcConstants.IS_WINDOW_REQUEST) != null) {
-                    request.setAttribute(MvcConstants.WINDOW_REQUEST_URI, request.getContextPath() + viewPath);
+
+                //用于pipe每个子window线程中的forward的viewPath，防止被覆盖
+                if(request.getAttribute(MvcConstants.PIPE_WINDOW_IN) == Boolean.TRUE) {
+                    request.setAttribute(MvcConstants.WINDOW_REQUEST_VIEW,  viewPath);
                 }
+
+                //用于pipe的主线程请求地址被子线程forward过程中的servletPath重写
+                if(request.getAttribute(MvcConstants.WINDOW_REQUEST_MAIN_FLAG) == Boolean.TRUE){
+
+                    request = new HttpServletRequestWrapper(request) {
+                        @Override
+                        public String getServletPath(){
+                           return viewPath;
+                        }
+
+                        @Override
+                        public String getRequestURI(){
+                           return super.getContextPath()+viewPath;
+                        }
+                    };
+                }
+
                 view.render(inv.getModel().getAttributes(), request, response);
             } else {
                 logger.info("interrupted");
@@ -102,7 +122,7 @@ public class ViewInstruction extends AbstractInstruction {
      *        index)，也可能是index.jsp带后缀的字符串，
      *        可能是一个带有/开头的绝对路径地址，可能是类似template/default这样的地址
      * @return
-     * @throws IOException
+     * @throws java.io.IOException
      */
     private String getViewPath(InvocationBean inv, String viewName) throws IOException {
         if (logger.isDebugEnabled()) {
@@ -165,7 +185,7 @@ public class ViewInstruction extends AbstractInstruction {
      * @param viewPathCache
      * @param viewName
      * @return
-     * @throws IOException
+     * @throws java.io.IOException
      */
     private String getViewPathFromCache(InvocationBean inv, ViewPathCache viewPathCache,
             final String viewName) throws IOException {
@@ -336,7 +356,7 @@ public class ViewInstruction extends AbstractInstruction {
     }
 
     /**
-     * 注册一个 {@link ViewDispatcher}定义到上下文中，以被这个类的所有实例使用
+     * 注册一个 {@link com.sinosoft.one.mvc.web.impl.view.ViewDispatcher}定义到上下文中，以被这个类的所有实例使用
      * 
      * @return
      */

@@ -55,6 +55,7 @@ import com.sinosoft.one.mvc.web.impl.thread.Mvc;
 import com.sinosoft.one.mvc.web.instruction.InstructionExecutor;
 import com.sinosoft.one.mvc.web.instruction.InstructionExecutorImpl;
 
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.AbstractApplicationContext;
@@ -146,6 +147,8 @@ public class MvcFilter extends GenericFilterBean {
 
     private static final String ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE = WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE;
 
+    private static final String[] DEFAULT_EXECUDE_EXTENTIONS = new String[] {"jsp","js","css","gif","png","jpg","jpeg","bmp","html","htm","swf"};
+
     /** 使用的applicationContext地址 */
     private String contextConfigLocation;
 
@@ -200,7 +203,7 @@ public class MvcFilter extends GenericFilterBean {
     }
 
     /**
-     * @see #quicklyPass(RequestPath)
+     * @see #quicklyPass(com.sinosoft.one.mvc.web.RequestPath)
      * @param ignoredPathStrings
      */
     public void setIgnoredPaths(String[] ignoredPathStrings) {
@@ -241,7 +244,7 @@ public class MvcFilter extends GenericFilterBean {
     }
 
     /**
-     * 实现 {@link GenericFilterBean#initFilterBean()}，对 Mvc 进行初始化
+     * 实现 {@link org.springframework.web.filter.GenericFilterBean#initFilterBean()}，对 Mvc 进行初始化
      */
 
     @Override
@@ -325,6 +328,11 @@ public class MvcFilter extends GenericFilterBean {
             logger.debug(httpRequest.getMethod() + " " + sb.toString());
         }
 
+        if(isNotMvcPath(httpRequest)){
+            filterChain.doFilter(request,response);
+            return;
+        }
+
         supportsMvcpipe(httpRequest);
 
         // 创建RequestPath对象，用于记录对地址解析的结果
@@ -355,6 +363,15 @@ public class MvcFilter extends GenericFilterBean {
         }
     }
 
+    private boolean isNotMvcPath(HttpServletRequest request) {
+        String servletPath = request.getServletPath();
+        String extension = servletPath.substring(servletPath.lastIndexOf(".") + 1);
+        if(logger.isDebugEnabled())
+            logger.debug("isNotMvcPath: servletPath is "+servletPath + " extension is " +extension);
+        return ArrayUtils.contains(DEFAULT_EXECUDE_EXTENTIONS, extension);
+    }
+
+
     // @see com.sinosoft.one.mvc.web.portal.impl.PortalWaitInterceptor#waitForWindows
     protected void supportsMvcpipe(final HttpServletRequest httpRequest) {
         // 这个代码为mvcpipe所用，以避免mvcpipe的"Cannot forward after response has been committed"异常
@@ -364,7 +381,7 @@ public class MvcFilter extends GenericFilterBean {
         String windowName = (String)httpRequest.getAttribute(MvcConstants.WINDOW_ATTR+".name");
         if(StringUtils.isNotBlank(windowName)){
 
-            Object window = httpRequest.getAttribute(MvcConstants.WINDOW_ATTR+"."+windowName);
+            Object window = httpRequest.getAttribute(MvcConstants.WINDOW_ATTR);
 
             if (window != null && window.getClass().getName().startsWith("com.sinosoft.one.mvc.web.portal")) {
                 httpRequest.setAttribute(MvcConstants.PIPE_WINDOW_IN, Boolean.TRUE);
@@ -378,7 +395,7 @@ public class MvcFilter extends GenericFilterBean {
                 }
                 synchronized (window) {
                     window.notifyAll();
-                    httpRequest.removeAttribute(MvcConstants.WINDOW_ATTR+".name");
+                   // httpRequest.removeAttribute(MvcConstants.WINDOW_ATTR+".name");
                 }
             }
         }
@@ -386,12 +403,13 @@ public class MvcFilter extends GenericFilterBean {
 
     }
 
+
     /**
      * 创建最根级别的 ApplicationContext 对象，比如WEB-INF、WEB-INF/classes、
      * jar中的spring配置文件所组成代表的、整合为一个 ApplicationContext 对象
      * 
      * @return
-     * @throws IOException
+     * @throws java.io.IOException
      */
     private WebApplicationContext prepareRootApplicationContext() throws IOException {
 

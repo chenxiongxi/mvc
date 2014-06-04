@@ -25,7 +25,7 @@ class FastJsonTransport extends Json {
 
         try {
             if(MvcObjectUtils.isPrimitiveOrString(data.getClass())) {
-                out.write(String.valueOf(data).getBytes(Charsets.UTF_8.displayName()));
+                out.write(String.valueOf(data).getBytes(Charsets.UTF_8));
                 return;
             }
             SerializeWriter writer = new SerializeWriter();
@@ -49,7 +49,7 @@ class FastJsonTransport extends Json {
 
             serializer.write(data);
             String text = serializer.toString();
-            out.write(text.getBytes(Charsets.UTF_8.displayName()));
+            out.write(text.getBytes(Charsets.UTF_8));
         } finally {
             if(out != null) {
                 out.close();

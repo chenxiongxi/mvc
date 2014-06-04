@@ -24,8 +24,11 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletRequestWrapper;
 import javax.servlet.http.HttpSession;
 
+import com.sinosoft.one.mvc.MvcConstants;
 import com.sinosoft.one.mvc.web.portal.Window;
 import com.sinosoft.one.mvc.web.portal.util.Enumerator;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 /**
  * 封装窗口请求，使每个窗口都有自己的独立属性空间，同时又能共享共同的portal请求对象的属性
@@ -34,6 +37,8 @@ import com.sinosoft.one.mvc.web.portal.util.Enumerator;
  * 
  */
 class WindowRequest extends HttpServletRequestWrapper {
+
+    private static final Log logger = LogFactory.getLog(WindowRequest.class);
 
     private static final String HEAER_IF_MODIFIED_SINCE = "If-Modified-Since";
 
@@ -81,6 +86,47 @@ class WindowRequest extends HttpServletRequestWrapper {
             return null;
         }
         return super.getHeader(name);
+    }
+
+
+    /**
+     * 覆写getServletPath防止受到dispatcher的干扰，破坏当前request的servletPath
+     * @return
+     */
+    @Override
+    public String getServletPath(){
+
+        //每个window都获取到自己正确的ServletPath
+        if(this.getAttribute(MvcConstants.PIPE_WINDOW_IN)==Boolean.TRUE){
+            //如果是forward到viewPath，那么需要通过此处控制
+            if(this.getAttribute(MvcConstants.WINDOW_REQUEST_VIEW)!=null)
+                return (String)this.getAttribute(MvcConstants.WINDOW_REQUEST_VIEW);
+
+            if(logger.isDebugEnabled())
+                logger.debug("--------------window name:"+this.window.getName()+",window path: "+this.window.getPath());
+            return this.window.getPath();
+        }
+        else{
+            //如果非pipe子线程，直接获取super的线
+            if(logger.isDebugEnabled())
+                logger.debug("--------------window name:"+this.window.getName()+",window path: "+this.window.getPath()
+                +"servlet path is : "+super.getServletPath());
+            return super.getServletPath();
+        }
+    }
+
+    @Override
+    public String getRequestURI(){
+        //每个window都获取到自己正确的RequestURI
+        if(this.getAttribute(MvcConstants.PIPE_WINDOW_IN)==Boolean.TRUE){
+
+            //如果是forward到viewPath，那么需要通过此处控制
+            if(this.getAttribute(MvcConstants.WINDOW_REQUEST_VIEW)!=null)
+                return this.getContextPath() + (String)this.getAttribute(MvcConstants.WINDOW_REQUEST_VIEW);
+             return this.getContextPath() + this.window.getPath();
+        }
+        else
+            return super.getRequestURI();
     }
 
     @SuppressWarnings("unchecked")
